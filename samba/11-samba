@@ -1,71 +1,80 @@
 logger $ACTION $DEVNAME $DEVTYPE
 
-[ "${DEVNAME:0:2}" = "sd" ] || exit 0
-[ "$DEVTYPE" = "partition" -o "$DEVTYPE" = "disk" ] || exit 0
-case "$ACTION" in
-    add)
-        [ "$DEVNAME" = "sda" ] && {   
-            #清除samba配置（带U盘重启，samba配置重复）
-            entry=$(uci get samba.@samba[0].share_cnt)
-            i=0
-            while [ $i -lt "$entry" ]
-            do
-                uci delete samba.@sambashare[0]
-                i=$((i + 1))
-            done
-            uci set samba.@samba[0].share_cnt=0
-            uci commit samba
-#			return;
-        }
+[ "$ACTION" = "add" ] && {
+    [ "$DEVTYPE" = "partition" -o "$DEVTYPE" = "disk" ] && {
+        [ "${DEVNAME:0:2}" = "sd" ] && {
+            [ "$DEVNAME" = "sda" ] && {
+                #清除samba配置（带U盘重启，samba配置重复）
+                entry=$(uci get samba.@samba[0].share_cnt)
+                i=0
+                while [ $i -lt "$entry" ]
+                do
+                    uci delete samba.@sambashare[0]
+                    i=$((i + 1))
+                done
+                uci set samba.@samba[0].share_cnt=0
+                uci commit samba
+                exit 0
+            }
+            section=`/sbin/uci add samba sambashare`
+            /sbin/uci rename samba.$section=usb$DEVNAME
+            /sbin/uci set samba.usb$DEVNAME.name=usb$DEVNAME
+            /sbin/uci set samba.usb$DEVNAME.path=/mnt/$DEVNAME
+            [ `/sbin/uci get samba.@samba[0].acc_mode` = "0" ] && {
+                /sbin/uci set samba.usb$DEVNAME.read_only=no
+                /sbin/uci set samba.usb$DEVNAME.guest_ok=yes
+                /sbin/uci set samba.usb$DEVNAME.create_mask=777
+                /sbin/uci set samba.usb$DEVNAME.dir_mask=777
+            }
+            [ `/sbin/uci get samba.@samba[0].acc_mode` = "1" ] && {
+                /sbin/uci set samba.usb$DEVNAME.read_only=yes
+                /sbin/uci set samba.usb$DEVNAME.guest_ok=yes
+                /sbin/uci set samba.usb$DEVNAME.create_mask=444
+                /sbin/uci set samba.usb$DEVNAME.dir_mask=444
+            }
+            #/sbin/uci set samba.@samba[0].dev_name=usb$DEVNAME
 
-        #添加samba配置
-        section=$(/sbin/uci add samba sambashare)
-        /sbin/uci rename samba."$section"=usb"$DEVNAME"
-        /sbin/uci set samba.usb"$DEVNAME".name=usb"$DEVNAME"
-        /sbin/uci set samba.usb"$DEVNAME".path=/mnt/"$DEVNAME"
-        [ "$(/sbin/uci get samba.@samba[0].acc_mode)" = "0" ] && {
-            /sbin/uci set samba.usb"$DEVNAME".read_only=no
-            /sbin/uci set samba.usb"$DEVNAME".guest_ok=yes
-            /sbin/uci set samba.usb"$DEVNAME".create_mask=777
-            /sbin/uci set samba.usb"$DEVNAME".dir_mask=777
-        }
-        [ "$(/sbin/uci get samba.@samba[0].acc_mode)" = "1" ] && {
-            /sbin/uci set samba.usb"$DEVNAME".read_only=yes
-            /sbin/uci set samba.usb"$DEVNAME".guest_ok=yes
-            /sbin/uci set samba.usb"$DEVNAME".create_mask=444
-            /sbin/uci set samba.usb"$DEVNAME".dir_mask=444
-        }
-        #/sbin/uci set samba.@samba[0].dev_name=usb$DEVNAME
-
-        #记录分区个数
-        cnt=$(/sbin/uci get samba.@samba[0].share_cnt)
-        cnt=$((cnt + 1))
-        /sbin/uci set samba.@samba[0].share_cnt=$cnt
-
-        /sbin/uci commit
-        chmod 777 /mnt/"$DEVNAME"
-        touch /tmp/smb.flag
-        smp.sh storage
-        /etc/init.d/samba restart  
-    ;;
-    remove)
-        [ "$(/sbin/uci get samba.usb"$DEVNAME".name)" = "" ] && exit 1
-        [ "$(/sbin/uci get samba.usb"$DEVNAME".name)" = "usb$DEVNAME" ] && {
-            /sbin/uci delete samba.usb"$DEVNAME"
             #记录分区个数
             cnt=$(/sbin/uci get samba.@samba[0].share_cnt)
-            cnt=$((cnt - 1))
-            [ $cnt -lt 0 ] && cnt=0
+            cnt=$((cnt + 1))
             /sbin/uci set samba.@samba[0].share_cnt=$cnt
-            
-            /sbin/uci commit
 
-            [ "$DEVNAME" = "sda" ] && {
-                /etc/init.d/samba restart
-            }
-            
+            /sbin/uci commit
+            chmod 777 /mnt/"$DEVNAME"
+
+            touch /tmp/smb.flag
+            smp.sh storage
+
+            /etc/init.d/samba restart
         }
-            
-    ;;
-esac
+        
+    }
+}
+
+
+[ "$ACTION" = "remove" ] && {
+    [ "$DEVTYPE" = "partition" -o "$DEVTYPE" = "disk" ] && {
+        [ "${DEVNAME:0:2}" = "sd" ] && {
+            [ "$DEVNAME" = "sda" ] && {
+                rm -f /tmp/smb.flag
+                /etc/init.d/samba restart
+                exit 1
+            }
+
+            [ "$(/sbin/uci get samba.usb"$DEVNAME".name)" = "" ] && exit 0
+            [ "$(/sbin/uci get samba.usb"$DEVNAME".name)" = "usb$DEVNAME" ] && {
+                /sbin/uci delete samba.usb"$DEVNAME"
+                #记录分区个数
+                cnt=$(/sbin/uci get samba.@samba[0].share_cnt)
+                cnt=$((cnt - 1))
+                [ $cnt -lt 0 ] && cnt=0
+                /sbin/uci set samba.@samba[0].share_cnt=$cnt
+                /sbin/uci commit
+            }
+
+
+        }
+    }
+}
+
 

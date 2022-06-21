@@ -3,7 +3,7 @@ logger $ACTION $DEVNAME $DEVTYPE
 [ "$ACTION" = "add" ] && {
     [ "$DEVTYPE" = "partition" -o "$DEVTYPE" = "disk" ] && {
         [ "${DEVNAME:0:2}" = "sd" ] && {
-            [ "$DEVNAME" = "sda" ] && {
+            [ "$(echo "$DEVICENAME" | grep -E "^sd[a-z]$")" = "" ] || {
                 #清除samba配置（带U盘重启，samba配置重复）
                 entry=$(uci get samba.@samba[0].share_cnt)
                 i=0
@@ -55,13 +55,12 @@ logger $ACTION $DEVNAME $DEVTYPE
 [ "$ACTION" = "remove" ] && {
     [ "$DEVTYPE" = "partition" -o "$DEVTYPE" = "disk" ] && {
         [ "${DEVNAME:0:2}" = "sd" ] && {
-            [ "$DEVNAME" = "sda" ] && {
+            [ "$(echo "$DEVICENAME" | grep -E "^sd[a-z]$")" = "" ] || {
                 rm -f /tmp/smb.flag
                 /etc/init.d/samba restart
                 exit 1
             }
 
-            [ "$(/sbin/uci get samba.usb"$DEVNAME".name)" = "" ] && exit 0
             [ "$(/sbin/uci get samba.usb"$DEVNAME".name)" = "usb$DEVNAME" ] && {
                 /sbin/uci delete samba.usb"$DEVNAME"
                 #记录分区个数
@@ -71,8 +70,6 @@ logger $ACTION $DEVNAME $DEVTYPE
                 /sbin/uci set samba.@samba[0].share_cnt=$cnt
                 /sbin/uci commit
             }
-
-
         }
     }
 }

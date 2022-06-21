@@ -2,31 +2,16 @@
 
 [ "${DEVICENAME:0:2}" = "sd" ] && {
     #sd[a-z]不挂载
-    [ "$(echo "$DEVICENAME" | grep -E "^sd[a-z]$")" = "" ] && exit 0
+    [ "$(echo "$DEVICENAME" | grep -E "^sd[a-z]$")" = "" ] || {
+        echo """$DEVICENAME"" return" >>/tmp/mount.log 
+        exit 0
+    }
 
     case "${ACTION}" in
         add)
             mkdir -p /mnt/"$DEVICENAME"
-            # file system check
-            if [ "$(which fdisk)" ]; then
-                isntfs=$(fdisk -l | grep "$DEVICENAME" | grep NTFS)
-                isvfat=$(fdisk -l | grep "$DEVICENAME" | grep FAT)
-            else
-                isntfs=""
-                isvfat=""
-            fi
-
             # mount
-            if [ "$isntfs" ]; then
-                echo "$DEVICENAME is ntfs" >>/tmp/mount.log
-                ntfs-3g  -o rw,relatime,data=writeback,errors=remount-ro,nodev /dev/"$DEVICENAME" /mnt/"$DEVICENAME"
-            elif [ "$isvfat" ]; then
-                echo "$DEVICENAME is fat" >>/tmp/mount.log
-                mount -t vfat -o iocharset=utf8,rw,relatime,data=writeback,errors=remount-ro,nodev /dev/"$DEVICENAME" /mnt/"$DEVICENAME"
-            else
-                echo "$DEVICENAME mount" >>/tmp/mount.log
-                mount -o rw,relatime,data=writeback,errors=remount-ro,nodev /dev/"$DEVICENAME" /mnt/"$DEVICENAME"
-            fi
+            ntfs-3g /dev/"$DEVICENAME" /mnt/"$DEVICENAME"
         ;;
         remove)
             umount -l /mnt/"$DEVICENAME"
