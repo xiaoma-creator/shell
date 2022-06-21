@@ -1,0 +1,35 @@
+#/sbin/block hotplug
+
+# if [ -x /usr/bin/ntfs-3g ];then
+#    mkdir -p /mnt/"$DEVICENAME"
+#    /usr/bin/ntfs-3g /dev/"$DEVICENAME" /mnt/"$DEVICENAME"
+# fi
+
+device="$DEVICENAME"
+[ "${device:0:2}" = "sd" ] && {
+    case "$ACTION" in
+        add)
+            mkdir -p /mnt/"$device"
+            # vfat & ntfs-3g check
+            isntfs=$(fdisk -l | grep "$device" | grep NTFS)
+            isvfat=$(fdisk -l | grep "$device" | grep FAT)
+            isntfs3g=$(which ntfs-3g)
+
+            # mount with ntfs-3g if possible, else with default mount
+            if [ "$isntfs" -a "$isntfs3g" ]; then
+                ntfs-3g /dev/"$device" /mnt/"$device"
+                echo "$device isntfs" >>/tmp/sambashell.log
+            elif [ "$isvfat" ]; then
+                mount -t vfat -o iocharset=utf8 /dev/"$device" /mnt/"$device"
+                echo "$device isvfat" >>/tmp/sambashell.log
+            else
+                mount /dev/"$device" /mnt/"$device"
+                echo "$device mount" >>/tmp/sambashell.log
+            fi
+        ;;
+        remove)
+            umount -l /mnt/"$device"
+            rm -r /mnt/"$device"
+        ;;
+    esac
+}

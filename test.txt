@@ -1,0 +1,6 @@
+this is a test
+do you like awk
+this's a test
+there are orange,apple,mongo
+
+

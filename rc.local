@@ -1,0 +1,44 @@
+# Put your custom commands here that should be executed once
+# the system init finished. By default this file does nothing.
+
+#remove samba config start
+dev=$(df | grep "sd")
+[ -z "$dev" ] && {
+    entry=$(uci get samba.@samba[0].share_cnt)
+    i=0
+    while [ $i -lt "$entry" ]
+    do 
+        uci delete samba.@sambashare[0]
+        i=$((i + 1))
+    done
+    uci set samba.@samba[0].share_cnt=0
+    uci commit samba
+    /etc/init.d/samba restart
+}
+#end
+
+sleep 8 && /usr/sbin/detect_internet -a 3 & > /dev/null 
+
+
+vpn_enable=$(uci get goahead.@system[0].vpn_enable)
+
+mode=$(uci get goahead.@system[0].mode)
+
+if [ 0 -eq $mode ]; then
+	if [ 1 -eq $vpn_enable ]; then
+		/etc/init.d/ipsec restart
+		/etc/init.d/ipsec_firewall restart
+		ipsec restart
+	else
+		/etc/init.d/ipsec stop
+		/etc/init.d/ipsec_firewall stop
+		ipsec stop
+	fi
+else
+	/etc/init.d/ipsec stop
+	/etc/init.d/ipsec_firewall stop
+	ipsec stop
+fi
+
+
+exit 0
