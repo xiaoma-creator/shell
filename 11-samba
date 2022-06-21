@@ -58,7 +58,7 @@ logger $ACTION $DEVNAME $DEVTYPE
             [ "$(echo "$DEVICENAME" | grep -E "^sd[a-z]$")" = "" ] || {
                 rm -f /tmp/smb.flag
                 /etc/init.d/samba restart
-                exit 1
+                exit 0
             }
 
             [ "$(/sbin/uci get samba.usb"$DEVNAME".name)" = "usb$DEVNAME" ] && {
