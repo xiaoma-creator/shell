@@ -1,9 +1,9 @@
 /sbin/block hotplug
 
-[ "${DEVICENAME:0:2}" = "sd" ] && {
+if [ "${DEVICENAME:0:2}" = "sd" ]; then #USB挂载
     #sd[a-z]不挂载
-    [ "$(echo "$DEVICENAME" | grep -E "^sd[a-z]$")" = "" ] || {
-        echo """$DEVICENAME"" return" >>/tmp/mount.log 
+    [ "$(echo "$DEVICENAME" | grep -E "^sd[a-z]$")" != "" ] && {
+        echo """$DEVICENAME"" return" >>/tmp/mount.log
         exit 0
     }
 
@@ -15,7 +15,12 @@
         ;;
         remove)
             umount -l /mnt/"$DEVICENAME"
-            [ "$DEVICENAME" ] && rm -r /mnt/"$DEVICENAME"
+            [ -n "$DEVICENAME" ] && rm -r /mnt/"$DEVICENAME"
         ;;
     esac
-}
+else    #其他设备挂载（/dev/loop1 /dev/loop[0-7] mtdblock[0-8]）
+    if [ -x /usr/bin/ntfs-3g ]; then
+        mkdir -p /mnt/"$DEVICENAME"
+        /usr/bin/ntfs-3g /dev/"$DEVICENAME" /mnt/"$DEVICENAME"
+    fi
+fi
